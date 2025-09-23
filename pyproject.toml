@@ -1,0 +1,72 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pqctlog"
+version = "0.1.0"
+description = "A tool for analyzing Certificate Transparency logs to identify quantum-vulnerable certificates and TLS configurations."
+readme = "README.md"
+authors = [
+    { name = "Your Name", email = "your.email@example.com" },
+]
+license = "MIT"
+license-files = ["LICENSE"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "requests>=2.28.1",
+    "cryptography>=38.0.1",
+    "opensearch-py>=2.0.0",
+    "python-dotenv>=0.21.0",
+    "PyYAML>=6.0",
+    "tqdm>=4.64.1",
+    "asn1crypto>=1.5.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=3.0.0",
+    "pytest-mock>=3.10.0",
+    "black>=22.3.0",
+    "isort>=5.10.1",
+    "flake8>=4.0.1",
+    "mypy>=0.910",
+    "sphinx>=4.3.0",
+    "sphinx-rtd-theme>=1.0.0",
+]
+
+[project.scripts]
+pqctlog = "pqctlog.main:main"
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+strict_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true

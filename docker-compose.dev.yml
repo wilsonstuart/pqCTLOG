@@ -1,0 +1,39 @@
+services:
+  # Application service
+  app:
+    build:
+      context: .
+      target: development
+      dockerfile: Dockerfile
+      args:
+        - REQUIREMENTS=requirements-dev.txt
+    container_name: pqctlog-app
+    volumes:
+      - .:/app
+      - /app/__pycache__
+      - /app/.pytest_cache
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+      - OPENSEARCH_HOST=opensearch
+      - OPENSEARCH_PORT=9200
+      - OPENSEARCH_USE_SSL=false
+      - OPENSEARCH_VERIFY_CERTS=false
+      - OPENSEARCH_HTTP_AUTH=admin:admin
+      - PYTHONPATH=/app
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    networks:
+      - pqctlog-opensearch-net
+    command: >
+      sh -c "pip install -r requirements-dev.txt &&
+             pip install -e . &&
+             python -m scripts.init_opensearch &&
+             python -m scripts.run_dev"
+    working_dir: /app
+
+networks:
+  pqctlog-opensearch-net:
+    external: true
+    name: pqctlog-opensearch-net
