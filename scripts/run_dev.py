@@ -34,6 +34,8 @@ def main():
                       help='Skip downloading certificates (use existing data)')
     parser.add_argument('--exclude-expired', action='store_true',
                       help='Exclude expired certificates from search results')
+    parser.add_argument('--include-precerts', action='store_true',
+                      help='Include pre-certificates in search results (excluded by default)')
     parser.add_argument('--log-level', type=str, default='INFO',
                       choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
                       help='Set the logging level')
@@ -83,6 +85,8 @@ def main():
             cmd_args.extend(['--domain', args.search_dns])
         if args.exclude_expired:
             cmd_args.append('--exclude-expired')
+        if args.include_precerts:
+            cmd_args.append('--include-precerts')
         if args.log_level:
             cmd_args.extend(['--log-level', args.log_level])
             

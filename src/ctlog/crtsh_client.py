@@ -120,17 +120,21 @@ class CRTshClient:
             
         self._last_request_time = time.monotonic()
     
-    def search_certificates(self, dns_name: str, match: str = "%", exclude_expired: bool = False) -> List[Dict]:
+    def search_certificates(self, dns_name: str, match: str = "%", exclude_expired: bool = False, 
+                          exclude_precerts: bool = True) -> List[Dict]:
         """Search for certificates by DNS name using crt.sh.
         
         Args:
             dns_name: Domain name to search for
             match: SQL LIKE pattern match (%% for wildcard)
             exclude_expired: If True, exclude expired certificates
+            exclude_precerts: If True, exclude pre-certificates from results
             
         Returns:
             List of certificate information dictionaries
         """
+        # Store the exclude_precerts flag for _process_certificate to use
+        self._exclude_precerts = exclude_precerts
         logger = logging.getLogger('pqctlog.crtsh')
         
         try:
@@ -181,9 +185,21 @@ class CRTshClient:
                 processed_certificates = []
                 for cert in certificates:
                     try:
-                        # Add the raw data for reference
-                        cert['raw'] = cert.copy()
-                        
+                        # First, process the certificate to extract all fields
+                        processed_cert = {
+                            k: v for k, v in cert.items()
+                            if k not in ('certificate', 'cert', 'raw')  # Skip large binary fields and raw
+                        }
+        
+                        # Ensure entry_type is included if it exists
+                        if 'entry_type' in cert:
+                            processed_cert['entry_type'] = cert['entry_type']
+            
+                        # Add the processed data as raw
+                        cert['raw'] = processed_cert
+                        # Add the exclude_precerts flag to the certificate data
+                        cert['_exclude_precerts'] = exclude_precerts
+            
                         # Process the certificate
                         processed = self._process_certificate(cert)
                         if processed:
@@ -988,9 +1004,35 @@ class CRTshClient:
             cert_data: Raw certificate data from crt.sh
             
         Returns:
-            Processed certificate data with all required fields, or None if processing fails
+            Processed certificate data with all required fields, or None if processing fails or if it's a pre-certificate
         """
         logger = logging.getLogger('pqctlog.crtsh')
+        
+        # Log the raw certificate data for debugging
+        logger.debug(f"Raw certificate data for ID {cert_data.get('id', 'unknown')}:")
+        logger.debug(f"Entry type: {cert_data.get('entry_type')}")
+        logger.debug(f"Raw data keys: {list(cert_data.keys())}")
+        
+        # Handle pre-certificates based on exclude_precerts flag
+        entry_type = cert_data.get('entry_type')
+        is_precert = entry_type == 1
+        
+        # Log the pre-certificate determination
+        logger.debug(f"Certificate ID {cert_data.get('id', 'unknown')} - entry_type: {entry_type}, is_precert: {is_precert}")
+        
+        # Set the is_precertificate flag
+        cert_data['is_precertificate'] = is_precert
+        
+        # Get exclude_precerts from cert_data if available, otherwise default to True
+        exclude_precerts = cert_data.get('_exclude_precerts', True)
+        
+        # Skip pre-certificates if exclude_precerts is True
+        if is_precert and exclude_precerts:
+            logger.debug(f"Skipping pre-certificate with ID: {cert_data.get('id', 'unknown')}")
+            return None
+            
+        if is_precert:
+            logger.debug(f"Including pre-certificate with ID: {cert_data.get('id', 'unknown')} (exclude_precerts=False)")
         
         # Log the raw certificate data for debugging
         logger.debug("Raw certificate data received:")
@@ -1342,6 +1384,7 @@ class CRTshClient:
                     },
                     'extensions': cert_data.get('extensions', {}) if isinstance(cert_data.get('extensions'), dict) else {},
                     'is_ca': bool(cert_data.get('is_ca', False)),
+                    'is_precertificate': is_precert,  # Add the is_precertificate field
                     'version': int(cert_data.get('version', 3)) if str(cert_data.get('version', '3')).isdigit() else 3,
                     'san': names if isinstance(names, list) else [],
                     'raw': cert_data.get('raw', {}) if isinstance(cert_data.get('raw'), dict) else {},

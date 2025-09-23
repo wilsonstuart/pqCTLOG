@@ -43,13 +43,14 @@ def setup_logging(config: Dict[str, Any]) -> None:
     logger.debug("Logging configured with level: %s", logging.getLevelName(log_level))
 
 def process_certificates(config: Dict[str, Any], domain: Optional[str] = None, 
-                        exclude_expired: bool = False) -> None:
+                        exclude_expired: bool = False, exclude_precerts: bool = True) -> None:
     """Process certificates from crt.sh.
     
     Args:
         config: Application configuration
         domain: Optional domain to search for in certificates
         exclude_expired: Whether to exclude expired certificates from search results
+        exclude_precerts: Whether to exclude pre-certificates from search results
     """
     logger = logging.getLogger('pqctlog')
     batch_size = 100  # Default batch size
@@ -69,10 +70,13 @@ def process_certificates(config: Dict[str, Any], domain: Optional[str] = None,
             logger.info("Excluding expired certificates from search results")
         
         # Search for certificates using the crtsh_client
+        if exclude_precerts:
+            logger.info("Excluding pre-certificates from search results")
         certificates = crt_client.search_certificates(
             dns_name=search_domain,
             match="%",  # Use wildcard match
-            exclude_expired=exclude_expired
+            exclude_expired=exclude_expired,
+            exclude_precerts=exclude_precerts
         )
             
         if not certificates:
@@ -110,6 +114,8 @@ def main():
     parser.add_argument('--domain', type=str, help='Search for certificates containing this DNS name')
     parser.add_argument('--exclude-expired', action='store_true',
                       help='Exclude expired certificates from search results')
+    parser.add_argument('--include-precerts', action='store_true',
+                      help='Include pre-certificates in search results (excluded by default)')
     parser.add_argument('--log-level', type=str, default='INFO',
                       choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
                       help='Set the logging level')
@@ -128,7 +134,8 @@ def main():
         process_certificates(
             config=config,
             domain=args.domain,
-            exclude_expired=args.exclude_expired
+            exclude_expired=args.exclude_expired,
+            exclude_precerts=not args.include_precerts
         )
         
         logger.info("Certificate processing completed successfully")

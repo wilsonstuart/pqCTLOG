@@ -250,6 +250,7 @@ class OpenSearchClient:
                     }
                 },
                 'is_self_signed': {'type': 'boolean'},
+                'is_precertificate': {'type': 'boolean', 'doc_values': True},
                 'key_usage': {'type': 'keyword'},
                 'extended_key_usage': {'type': 'keyword'},
                 'basic_constraints': {
