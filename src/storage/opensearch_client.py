@@ -220,15 +220,7 @@ class OpenSearchClient:
                         'supported_versions': {'type': 'keyword'},
                         'is_post_quantum': {'type': 'boolean'},
                         'security_level': {'type': 'keyword'},
-                        'preferred_cipher': {
-                            'properties': {
-                                'name': {'type': 'keyword'},
-                                'bits': {'type': 'integer'},
-                                'tls_version': {'type': 'keyword'},
-                                'security_level': {'type': 'keyword'},
-                                'is_post_quantum': {'type': 'boolean'}
-                            }
-                        },
+                        'preferred_cipher': {'type': 'object'},
                         'supported_ciphers': {
                             'type': 'nested',
                             'properties': {

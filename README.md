@@ -100,6 +100,7 @@ Options:
 - `--exclude-expired`: Exclude expired certificates
 - `--include-precerts`: Include pre-certificates
 - `--download-full-certs`: Download and parse full certificate details (slower)
+- `--scan-tls`: Perform TLS scanning on domains found in certificates
 - `--log-level`: Set logging level (DEBUG, INFO, WARNING, ERROR)
 - `--config`: Path to configuration file
 
@@ -121,6 +122,89 @@ Use `--download-full-certs` only when you need detailed information like:
 **Performance comparison:**
 - Basic search: ~1-2 seconds for 100 certificates
 - Full certificate download: ~30-60 seconds for 100 certificates (due to individual downloads)
+- TLS scanning: ~5-10 seconds per domain (depends on network and server response)
+
+## TLS Scanning
+
+The TLS scanner analyzes the actual TLS configurations of domains found in certificates.
+
+### Standalone TLS Scanning
+
+```bash
+# Scan specific domains
+python scripts/scan_tls.py example.com google.com
+
+# Scan with custom ports and timeout
+python scripts/scan_tls.py example.com --ports 443 8443 993 --timeout 5
+
+# Output detailed results
+python scripts/scan_tls.py example.com --output detailed
+
+# Store results in OpenSearch
+python scripts/scan_tls.py example.com --store
+```
+
+### What TLS Scanning Provides
+
+- **TLS Version Support**: Which TLS/SSL versions are supported
+- **Cipher Suite Analysis**: Supported cipher suites and their security levels
+- **Post-Quantum Assessment**: Limited detection of PQ readiness (see limitations below)
+- **Security Issues**: Identification of weak or deprecated configurations
+- **Certificate Details**: Basic certificate information from TLS handshake
+
+### Post-Quantum Detection Limitations
+
+⚠️ **Important**: Our scanner has limitations detecting post-quantum cryptography:
+
+- **Cannot detect hybrid PQ**: Most real-world PQ uses hybrid key exchange, only visible to PQ-capable clients
+- **Python SSL limitations**: Standard Python `ssl` module doesn't support PQ algorithms yet
+- **Server behavior**: Servers only offer PQ to clients that support it
+
+**What we can detect:**
+- TLS 1.3 support (prerequisite for PQ)
+- Modern cipher suites (compatible with PQ)
+- Known PQ-experimenting providers (Cloudflare, Google)
+
+**For definitive PQ testing:** Use specialized tools like PQ-enabled OpenSSL or curl. See `docs/POST_QUANTUM_TESTING.md` for detailed guidance.
+
+### TLS Scan Results
+
+Results are stored in the `pqctlog_scan_results` index and include:
+
+```json
+{
+  "domain": "example.com",
+  "scan_timestamp": "2025-02-10T12:00:00Z",
+  "ports": {
+    "443": {
+      "success": true,
+      "tls_versions": {
+        "TLSv1.3": true,
+        "TLSv1.2": true,
+        "TLSv1.1": false,
+        "TLSv1.0": false
+      },
+      "cipher_suites": [
+        {
+          "name": "TLS_AES_256_GCM_SHA384",
+          "version": "TLSv1.3",
+          "bits": 256,
+          "security_level": "secure",
+          "is_post_quantum": false
+        }
+      ],
+      "security_issues": [],
+      "post_quantum_ready": false
+    }
+  },
+  "summary": {
+    "successful_connections": 1,
+    "tls_versions_supported": ["TLSv1.3", "TLSv1.2"],
+    "post_quantum_ready": false,
+    "security_issues": []
+  }
+}
+```
 
 ## Index Management
 
@@ -181,6 +265,12 @@ python -m src.main --domain example.com --include-precerts --log-level DEBUG
 
 # Download full certificate details (slower but more complete)
 python -m src.main --domain example.com --download-full-certs
+
+# Search certificates AND scan TLS configurations
+python -m src.main --domain example.com --scan-tls
+
+# Full analysis: certificates + TLS scanning + detailed cert info
+python -m src.main --domain example.com --download-full-certs --scan-tls
 ```
 
 ## Development
