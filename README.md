@@ -1,43 +1,32 @@
 # pqCTLOG
 
-A tool for analyzing Certificate Transparency logs to identify quantum-vulnerable certificates and TLS configurations.
+A streamlined tool for analyzing certificates from Certificate Transparency logs to identify quantum-vulnerable certificates and assess post-quantum readiness.
 
 ## Features
 
-- **Certificate Transparency Log Analysis**
-  - Fetch and parse certificates from multiple CT logs
-  - Extract domain names and certificate details
-  - Identify quantum-vulnerable algorithms and key types
+- **Certificate Analysis**
+  - Search certificates by domain using crt.sh
+  - Parse and analyze certificate details
+  - Identify quantum-vulnerable signature algorithms
+  - Extract Subject Alternative Names and validity information
 
-- **TLS Configuration Scanning**
-  - Scan domains for supported TLS ciphersuites
-  - Check for weak or vulnerable cipher configurations
-  - Identify quantum-vulnerable key exchange mechanisms
+- **Data Storage**
+  - Store certificate data in OpenSearch
+  - Efficient bulk indexing with batching
+  - Structured data models with validation
 
-- **Data Storage & Analysis**
-  - Store certificate and scan data in OpenSearch
-  - Query and analyze data using OpenSearch Dashboards
-  - Generate reports on security findings
-
-- **Automation**
-  - Continuous monitoring of CT logs
-  - Scheduled scanning of domains
-  - Alerting on security issues
+- **Configuration Management**
+  - Centralized configuration with Pydantic validation
+  - Environment variable support
+  - Multiple configuration file locations
 
 ## Prerequisites
 
 - Python 3.8+
-- Docker and Docker Compose (for running OpenSearch and OpenSearch Dashboards)
-- OpenSearch 2.0+ (included in Docker setup)
+- Docker and Docker Compose (for OpenSearch)
+- OpenSearch 2.0+
 
 ## Quick Start
-
-### Prerequisites
-
-- Docker and Docker Compose
-- Python 3.8+
-
-### Local Development Setup
 
 1. **Clone the repository**
    ```bash
@@ -56,63 +45,142 @@ A tool for analyzing Certificate Transparency logs to identify quantum-vulnerabl
    pip install -r requirements.txt
    ```
 
-4. **Start the OpenSearch services**
+4. **Start OpenSearch**
    ```bash
    docker-compose up -d
    ```
 
-5. **Initialize OpenSearch indices**
+5. **Search for certificates**
    ```bash
-   python scripts/init_opensearch.py
+   python -m src.main --domain example.com
    ```
-
-6. **Run the application**
-   ```bash
-   python scripts/run_dev.py
-   ```
-
-### Using Docker Compose (All-in-One)
-
-For a complete development environment with the application and all dependencies:
-
-```bash
-docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
-```
-
-This will start:
-- OpenSearch on http://localhost:9200
-- OpenSearch Dashboards on http://localhost:5601
-- The pqCTLOG application
 
 ### Configuration
 
-Edit `config/opensearch.yaml` to configure:
-- OpenSearch connection settings
-- CT Log endpoints
-- Scanner settings
-- Logging configuration
+The application uses `config/config.yaml` for configuration. You can also set environment variables:
+
+```bash
+export PQCTLOG_OPENSEARCH_HOST=localhost
+export PQCTLOG_OPENSEARCH_PORT=9200
+export PQCTLOG_LOG_LEVEL=DEBUG
+```
 
 ## Project Structure
 
 ```
 pqctlog/
 ├── config/                  # Configuration files
-│   └── opensearch.yaml      # Main configuration
-├── docker/                  # Docker-related files
-├── docs/                    # Documentation
-├── scripts/                 # Utility scripts
+│   └── config.yaml          # Main configuration
 ├── src/                     # Source code
-│   ├── ctlog/               # CT Log client and parser
-│   ├── scanner/             # TLS scanner
+│   ├── core/                # Core utilities and shared components
+│   │   ├── config.py        # Centralized configuration management
+│   │   ├── utils.py         # Common utility functions
+│   │   └── certificate_parser.py  # Consolidated certificate parsing
+│   ├── ctlog/               # Certificate Transparency clients
+│   │   └── simplified_crtsh_client.py  # Simplified crt.sh client
 │   ├── storage/             # Data storage (OpenSearch)
+│   │   └── opensearch_client.py
 │   └── main.py              # Main application entry point
-├── tests/                   # Unit and integration tests
-├── .dockerignore
-├── .gitignore
-├── docker-compose.yml       # Production services
-├── docker-compose.dev.yml   # Development overrides
-├── Dockerfile               # Multi-stage Dockerfile
+├── tests/                   # Unit tests
+├── scripts/                 # Utility scripts
+├── docker-compose.yml       # OpenSearch services
 └── requirements.txt         # Python dependencies
+```
+
+## Usage
+
+### Command Line Options
+
+```bash
+python -m src.main --help
+```
+
+Options:
+- `--domain`: Domain name to search for (required)
+- `--exclude-expired`: Exclude expired certificates
+- `--include-precerts`: Include pre-certificates
+- `--download-full-certs`: Download and parse full certificate details (slower)
+- `--log-level`: Set logging level (DEBUG, INFO, WARNING, ERROR)
+- `--config`: Path to configuration file
+
+### Performance Notes
+
+By default, the application only fetches basic certificate information from crt.sh search results, which is fast and efficient. This includes:
+- Certificate ID and serial number
+- Issuer and subject information
+- Validity dates
+- Subject Alternative Names
+- Entry type (certificate vs pre-certificate)
+
+Use `--download-full-certs` only when you need detailed information like:
+- Signature algorithms and quantum vulnerability analysis
+- Public key details and sizes
+- Certificate extensions
+- Fingerprints
+
+**Performance comparison:**
+- Basic search: ~1-2 seconds for 100 certificates
+- Full certificate download: ~30-60 seconds for 100 certificates (due to individual downloads)
+
+## Index Management
+
+### Clear the certificates index
+```bash
+# Clear all documents from the certificates index
+python scripts/manage_index.py clear
+
+# Clear a specific index
+python scripts/manage_index.py --index scan_results clear
+```
+
+### Delete an index entirely
+```bash
+# Delete the certificates index (with confirmation)
+python scripts/manage_index.py delete
+
+# Delete a specific index
+python scripts/manage_index.py --index scan_results delete
+```
+
+### View index statistics
+```bash
+# Show statistics for certificates index
+python scripts/manage_index.py stats
+
+# Show statistics for all indices
+python scripts/manage_index.py list
+```
+
+### Direct OpenSearch commands
+You can also use curl commands directly:
+
+```bash
+# Clear certificates index
+curl -X POST "localhost:9200/pqctlog_certificates/_delete_by_query" \
+  -H "Content-Type: application/json" \
+  -d '{"query": {"match_all": {}}}'
+
+# Delete certificates index entirely
+curl -X DELETE "localhost:9200/pqctlog_certificates"
+
+# Get index statistics
+curl -X GET "localhost:9200/pqctlog_certificates/_stats"
+```
+
+### Examples
+
+```bash
+# Search for certificates for example.com (basic info only - fast)
+python -m src.main --domain example.com
+
+# Exclude expired certificates
+python -m src.main --domain example.com --exclude-expired
+
+# Include pre-certificates and set debug logging
+python -m src.main --domain example.com --include-precerts --log-level DEBUG
+
+# Download full certificate details (slower but more complete)
+python -m src.main --domain example.com --download-full-certs
 ```
 
 ## Development
@@ -120,29 +188,20 @@ pqctlog/
 ### Running Tests
 
 ```bash
-pytest tests/
+pytest tests/ -v
 ```
 
-### Linting and Code Style
+### Code Quality
 
 ```bash
-# Auto-format code
-black .
+# Format code
+black src/ tests/
 
-# Sort imports
-isort .
-
-# Check for style issues
-flake8
+# Sort imports  
+isort src/ tests/
 
 # Type checking
-mypy .
-```
-
-### Building for Production
-
-```bash
-docker build -t pqctlog:latest .
+mypy src/
 ```
 
 ## License

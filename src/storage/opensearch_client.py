@@ -6,97 +6,121 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
 
 from opensearchpy import OpenSearch
+from opensearchpy.helpers import bulk
 
-from src.config import load_config
+from src.core.config import AppConfig
 
 logger = logging.getLogger(__name__)
 
 class OpenSearchClient:
     """Client for interacting with OpenSearch."""
     
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: AppConfig):
         """Initialize the OpenSearch client.
         
         Args:
-            config: Optional configuration dictionary. If not provided, loads from config file.
+            config: Application configuration object.
         """
-        self.config = config or load_config().get('opensearch', {})
+        self.config = config.opensearch
         self.client = self._create_client()
-        self.index_prefix = self.config.get('index_prefix', 'pqctlog_')
-        self._ensure_indices()
+        self.index_prefix = self.config.index_prefix
+        self._indices_created = False
     
-    def bulk_index(self, index: str, documents: List[Dict], id_field: str = 'id') -> int:
-        """Index multiple documents in bulk.
+    def bulk_index(self, index: str, documents: List[Dict], id_field: str = 'id', batch_size: int = 100) -> int:
+        """Index multiple documents in bulk with batching.
         
         Args:
             index: The name of the index to index documents into
             documents: List of documents to index
             id_field: Field to use as document ID
+            batch_size: Number of documents to process in each batch
             
         Returns:
             Number of successfully indexed documents
         """
         if not documents:
             return 0
-            
-        full_index_name = f"{self.index_prefix}{index}"
-        actions = []
         
-        for doc in documents:
-            doc_id = str(doc.get(id_field))
-            if not doc_id:
-                continue
+        self._ensure_indices()
+        full_index_name = f"{self.index_prefix}{index}"
+        total_success = 0
+        
+        # Process documents in batches
+        for i in range(0, len(documents), batch_size):
+            batch = documents[i:i + batch_size]
+            actions = []
+            
+            for doc in batch:
+                doc_id = str(doc.get(id_field, ''))
+                if not doc_id:
+                    logger.warning(f"Document missing {id_field} field, skipping")
+                    continue
                 
-            action = {
-                "_index": full_index_name,
-                "_id": doc_id,
-                "_source": doc
-            }
-            actions.append(action)
+                # Add timestamps
+                now = datetime.utcnow().isoformat()
+                doc.setdefault('created_at', now)
+                doc['updated_at'] = now
+                
+                actions.append({
+                    "_index": full_index_name,
+                    "_id": doc_id,
+                    "_source": doc
+                })
             
-        if not actions:
-            return 0
-            
-        try:
-            from opensearchpy.helpers import bulk
-            success, _ = bulk(self.client, actions)
-            logger.info(f"Indexed {success} documents into {full_index_name}")
-            return success
-            
-        except Exception as e:
-            logger.error(f"Error bulk indexing documents: {str(e)}")
-            raise
+            if actions:
+                try:
+                    success, failed = bulk(
+                        self.client, 
+                        actions,
+                        chunk_size=batch_size,
+                        request_timeout=60,
+                        max_retries=3,
+                        initial_backoff=2,
+                        max_backoff=600
+                    )
+                    total_success += success
+                    
+                    if failed:
+                        logger.warning(f"Failed to index {len(failed)} documents in batch")
+                        
+                except Exception as e:
+                    logger.error(f"Error bulk indexing batch {i//batch_size + 1}: {str(e)}")
+                    continue
+        
+        logger.info(f"Successfully indexed {total_success} documents into {full_index_name}")
+        return total_success
 
     def _create_client(self) -> OpenSearch:
         """Create and configure the OpenSearch client."""
         hosts = [{
-            'host': self.config.get('host', 'opensearch'),  # Default to 'opensearch' for Docker
-            'port': self.config.get('port', 9200)
+            'host': self.config.host,
+            'port': self.config.port
         }]
-        logger.info(f"Connecting to OpenSearch at {hosts[0]['host']}:{hosts[0]['port']}")
+        logger.info(f"Connecting to OpenSearch at {self.config.host}:{self.config.port}")
         
         http_auth = None
-        if 'http_auth' in self.config:
-            http_auth = (
-                self.config['http_auth'].get('username'),
-                self.config['http_auth'].get('password')
-            )
+        if self.config.http_auth:
+            http_auth = (self.config.http_auth.username, self.config.http_auth.password)
         
         return OpenSearch(
             hosts=hosts,
             http_auth=http_auth,
-            use_ssl=self.config.get('use_ssl', False),
-            verify_certs=self.config.get('verify_certs', False),
-            ssl_show_warn=self.config.get('ssl_show_warn', False),
-            timeout=30,
-            max_retries=3,
+            use_ssl=self.config.use_ssl,
+            verify_certs=self.config.verify_certs,
+            ssl_show_warn=False,
+            timeout=self.config.timeout,
+            max_retries=self.config.max_retries,
             retry_on_timeout=True
         )
     
     def _ensure_indices(self) -> None:
         """Ensure that the required indices exist with proper mappings."""
+        if self._indices_created:
+            return
+            
         self._ensure_index('certificates', self._get_certificate_mapping())
         self._ensure_index('scan_results', self._get_scan_result_mapping())
+        self._indices_created = True
     
     def _ensure_index(self, index_name: str, mapping: Dict[str, Any]) -> None:
         """Ensure that an index exists with the given mapping.
@@ -672,3 +696,95 @@ class OpenSearchClient:
         }
         
         return self.search_certificates(query, limit)
+    
+    def clear_index(self, index: str) -> bool:
+        """Clear all documents from an index.
+        
+        Args:
+            index: Base name of the index to clear (without prefix)
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        full_index_name = f"{self.index_prefix}{index}"
+        
+        try:
+            # Delete all documents using delete by query
+            response = self.client.delete_by_query(
+                index=full_index_name,
+                body={
+                    "query": {
+                        "match_all": {}
+                    }
+                },
+                refresh=True
+            )
+            
+            deleted_count = response.get('deleted', 0)
+            logger.info(f"Cleared {deleted_count} documents from index {full_index_name}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to clear index {full_index_name}: {e}")
+            return False
+    
+    def delete_index(self, index: str) -> bool:
+        """Delete an entire index.
+        
+        Args:
+            index: Base name of the index to delete (without prefix)
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        full_index_name = f"{self.index_prefix}{index}"
+        
+        try:
+            if self.client.indices.exists(index=full_index_name):
+                self.client.indices.delete(index=full_index_name)
+                logger.info(f"Deleted index {full_index_name}")
+                return True
+            else:
+                logger.warning(f"Index {full_index_name} does not exist")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Failed to delete index {full_index_name}: {e}")
+            return False
+    
+    def get_index_stats(self, index: str) -> Dict[str, Any]:
+        """Get statistics for an index.
+        
+        Args:
+            index: Base name of the index (without prefix)
+            
+        Returns:
+            Dictionary with index statistics
+        """
+        full_index_name = f"{self.index_prefix}{index}"
+        
+        try:
+            if not self.client.indices.exists(index=full_index_name):
+                return {"exists": False}
+            
+            stats = self.client.indices.stats(index=full_index_name)
+            index_stats = stats['indices'][full_index_name]
+            
+            return {
+                "exists": True,
+                "document_count": index_stats['total']['docs']['count'],
+                "size_in_bytes": index_stats['total']['store']['size_in_bytes'],
+                "size_human": self._format_bytes(index_stats['total']['store']['size_in_bytes'])
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get stats for index {full_index_name}: {e}")
+            return {"exists": False, "error": str(e)}
+    
+    def _format_bytes(self, bytes_size: int) -> str:
+        """Format bytes into human readable format."""
+        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+            if bytes_size < 1024.0:
+                return f"{bytes_size:.1f} {unit}"
+            bytes_size /= 1024.0
+        return f"{bytes_size:.1f} PB"

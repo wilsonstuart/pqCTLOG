@@ -12,8 +12,9 @@ project_root = str(Path(__file__).parent.parent)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from ctlog.crtsh_client import CRTshClient
-from storage.opensearch_client import OpenSearchClient
+from src.ctlog.simplified_crtsh_client import SimplifiedCRTshClient
+from src.storage.opensearch_client import OpenSearchClient
+from src.core.config import load_config
 
 # Set up logging
 logging.basicConfig(
@@ -26,10 +27,8 @@ def test_search_certificates(domain: str = "example.com"):
     """Test certificate search and storage."""
     try:
         # Initialize clients
-        logger.info("Initializing CRTshClient...")
-        client = CRTshClient(
-            max_retries=5,
-            backoff_factor=1.0,
+        logger.info("Initializing SimplifiedCRTshClient...")
+        client = SimplifiedCRTshClient(
             timeout=30,
             rate_limit_delay=2.0
         )
@@ -63,18 +62,8 @@ def test_search_certificates(domain: str = "example.com"):
             return
         
         # Initialize OpenSearch client
-        opensearch_config = {
-            'http_auth': {
-                'username': 'admin',
-                'password': 'admin'
-            },
-            'hosts': [{'host': 'localhost', 'port': 9200}],
-            'use_ssl': False,
-            'verify_certs': False,
-            'ssl_show_warn': False
-        }
-        
-        storage = OpenSearchClient(opensearch_config)
+        config = load_config()
+        storage = OpenSearchClient(config)
         
         # Store certificates in batches
         batch_size = 50
@@ -82,20 +71,10 @@ def test_search_certificates(domain: str = "example.com"):
             batch = certificates[i:i + batch_size]
             processed_batch = []
             
-            for cert in batch:
-                try:
-                    # Get full certificate details
-                    cert_details = client._get_certificate_details(cert['id'])
-                    if cert_details:
-                        cert_details['search_domain'] = domain
-                        processed_batch.append(cert_details)
-                except Exception as e:
-                    logger.error(f"Error processing certificate {cert.get('id', 'unknown')}: {str(e)}")
-            
             # Store batch in OpenSearch
-            if processed_batch:
-                success_count = storage.bulk_index_certificates(processed_batch)
-                logger.info(f"Indexed batch {i//batch_size + 1}: {success_count}/{len(processed_batch)} certificates")
+            if batch:
+                success_count = storage.bulk_index("certificates", batch, "id")
+                logger.info(f"Indexed batch {i//batch_size + 1}: {success_count}/{len(batch)} certificates")
             
             # Be nice to the API
             import time

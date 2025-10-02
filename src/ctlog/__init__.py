@@ -2,6 +2,6 @@
 Certificate Transparency Log module for fetching and processing CT log entries.
 """
 from .client import CTLogClient
-from .parser import parse_certificate
+from .simplified_crtsh_client import SimplifiedCRTshClient
 
-__all__ = ['CTLogClient', 'parse_certificate']
+__all__ = ['CTLogClient', 'SimplifiedCRTshClient']

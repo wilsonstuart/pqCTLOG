@@ -29,8 +29,8 @@ dependencies = [
     "opensearch-py>=2.0.0",
     "python-dotenv>=0.21.0",
     "PyYAML>=6.0",
-    "tqdm>=4.64.1",
-    "asn1crypto>=1.5.1",
+    "pydantic>=1.10.0",
+    "pyOpenSSL>=22.0.0",
 ]
 
 [project.optional-dependencies]

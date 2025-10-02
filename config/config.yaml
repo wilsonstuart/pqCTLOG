@@ -4,88 +4,42 @@ opensearch:
   port: 9200
   use_ssl: false
   verify_certs: false
+  timeout: 30
+  max_retries: 3
   http_auth:
     username: "admin"
     password: "admin"
   index_prefix: "pqctlog_"
 
-# CT Log Configuration
-# Note: Certificate searches are performed using crt.sh
-ct_logs: []
-
 # Scanner Configuration
 scanner:
-  max_entries: 1000  # Maximum number of entries to fetch per run
-  scan_interval: 3600  # Time between scans in seconds
-  worker_threads: 5  # Number of worker threads for parallel processing
+  max_entries: 1000
+  scan_interval: 3600
+  worker_threads: 5
 
 # TLS Scanner Configuration
 tls_scanner:
   enabled: true
-  timeout: 10  # Connection timeout in seconds
-  max_workers: 10  # Maximum number of concurrent scans
-  scan_interval: 86400  # Time between full scans in seconds (default: 24 hours)
-  ports: [443, 8443, 993, 995, 465, 587]  # Common TLS ports to scan
-  
-  # TLS versions to test
+  timeout: 10
+  max_workers: 10
+  scan_interval: 86400
+  ports: [443, 8443]
   tls_versions:
     - "TLSv1.3"
     - "TLSv1.2"
-    - "TLSv1.1"
-    - "TLSv1.0"
-    - "SSLv3"
-  
-  # Cipher suites to test for
   ciphersuites:
-    # Modern ciphers (recommended)
     - "TLS_AES_128_GCM_SHA256"
     - "TLS_AES_256_GCM_SHA384"
     - "TLS_CHACHA20_POLY1305_SHA256"
-    
-    # ECDHE ciphers
     - "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"
     - "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
-    - "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"
-    - "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
-    - "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256"
-    - "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256"
-    
-    # Legacy ciphers (for compatibility)
-    - "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA"
-    - "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA"
-    - "TLS_RSA_WITH_AES_128_GCM_SHA256"
-    - "TLS_RSA_WITH_AES_256_GCM_SHA384"
-    - "TLS_RSA_WITH_AES_128_CBC_SHA"
-    - "TLS_RSA_WITH_AES_256_CBC_SHA"
-    
-    # Weak ciphers (for detection)
-    - "TLS_RSA_WITH_3DES_EDE_CBC_SHA"
-    - "TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA"
-    - "TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA"
-    - "TLS_RSA_WITH_RC4_128_SHA"
-    - "TLS_RSA_WITH_RC4_128_MD5"
-    
-  # Post-quantum ciphers to check for
   post_quantum_ciphers:
     - "KYBER"
-    - "FRODO"
-    - "SIKE"
-    - "SABER"
-    - "NTRU"
-    - "CLASSIC_MCELIECE"
     - "FALCON"
     - "DILITHIUM"
-    - "SPHINCS"
-    - "XMSS"
-    - "BIKE"
-    - "HQC"
-    - "NTRUPRIME"
-    - "NTRU_HRSS"
-    - "NTRU_HPS"
 
 # Logging Configuration
 logging:
   level: "INFO"
-  file: "pqctlog.log"
-  max_size: 10485760  # 10MB
+  max_size: 10485760
   backup_count: 5

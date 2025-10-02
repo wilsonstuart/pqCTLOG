@@ -9,7 +9,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from src.main import main as run_application
-from src.config import load_config
+from src.core.config import load_config
 
 # Add the project root to the Python path before any imports
 project_root = Path(__file__).parent.parent
@@ -29,7 +29,7 @@ def main():
     parser = argparse.ArgumentParser(description='Run pqCTLOG in development mode')
     parser.add_argument('--config', type=str, default='config/config.yaml',
                       help='Path to configuration file')
-    parser.add_argument('--search-dns', type=str, help='Search for certificates containing this DNS name')
+    parser.add_argument('--domain', type=str, help='Search for certificates containing this DNS name')
     parser.add_argument('--no-download-certificates', action='store_true',
                       help='Skip downloading certificates (use existing data)')
     parser.add_argument('--exclude-expired', action='store_true',
@@ -81,8 +81,8 @@ def main():
         # Prepare command line arguments for main()
         import sys
         cmd_args = []
-        if args.search_dns:
-            cmd_args.extend(['--domain', args.search_dns])
+        if args.domain:
+            cmd_args.extend(['--domain', args.domain])
         if args.exclude_expired:
             cmd_args.append('--exclude-expired')
         if args.include_precerts:

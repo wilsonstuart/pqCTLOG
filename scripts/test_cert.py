@@ -10,7 +10,7 @@ import sys
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.ctlog.crtsh_client import CRTshClient
+from src.ctlog.simplified_crtsh_client import SimplifiedCRTshClient
 
 # Set up logging
 logging.basicConfig(
@@ -21,7 +21,7 @@ logger = logging.getLogger('test_cert')
 
 def test_cert_parsing(cert_id):
     """Test parsing a specific certificate by ID."""
-    client = CRTshClient()
+    client = SimplifiedCRTshClient()
     logger.info(f"Testing certificate ID: {cert_id}")
     
     # Try to get certificate details
