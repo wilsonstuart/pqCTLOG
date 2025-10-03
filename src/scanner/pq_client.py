@@ -165,8 +165,22 @@ class PQTLSClient:
             'error': None
         }
         
-        # Common PQ groups to test
+        # Common PQ groups to test (including NIST standardized names)
         pq_groups = [
+            # NIST standardized ML-KEM (Kyber) - highest priority
+            'mlkem768',
+            'mlkem512',
+            'mlkem1024',
+            # NIST standardized hybrid combinations
+            'x25519mlkem768',
+            'X25519MLKEM768',  # Alternative capitalization
+            'p256mlkem768',
+            'p384mlkem768',
+            # NIST standardized ML-DSA (Dilithium)
+            'mldsa65',
+            'mldsa44',
+            'mldsa87',
+            # Legacy names (for backward compatibility)
             'kyber512',
             'kyber768', 
             'kyber1024',
@@ -228,8 +242,16 @@ class PQTLSClient:
             'error': None
         }
         
-        # Test with curl and PQ curves
+        # Test with curl and PQ curves (including NIST standardized names)
         pq_curves = [
+            # NIST standardized ML-KEM - highest priority
+            'mlkem768',
+            'x25519mlkem768',
+            'X25519MLKEM768',  # Alternative capitalization
+            'p256mlkem768',
+            'mlkem512',
+            'mlkem1024',
+            # Legacy names for backward compatibility
             'kyber512',
             'kyber768',
             'x25519_kyber512',

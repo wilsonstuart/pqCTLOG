@@ -42,6 +42,11 @@ tls_scanner:
     - "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256"
     - "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256"
   post_quantum_ciphers:
+    # NIST standardized algorithms (highest priority)
+    - "MLKEM"      # ML-KEM (standardized Kyber)
+    - "MLDSA"      # ML-DSA (standardized Dilithium)  
+    - "SLHDSA"     # SLH-DSA (standardized SPHINCS+)
+    # Legacy/experimental names
     - "KYBER"
     - "FALCON"
     - "DILITHIUM"
@@ -49,8 +54,6 @@ tls_scanner:
     - "NTRU"
     - "FRODO"
     - "SABER"
-    - "MLKEM"
-    - "MLDSA"
   # Enable external PQ testing tools
   enable_pq_testing: true
   pq_test_timeout: 15
