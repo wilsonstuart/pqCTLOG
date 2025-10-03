@@ -41,16 +41,16 @@ cd curl
 make && make install
 
 # Test with PQ groups
-curl -v --curves kyber512 https://regdata.fca.org.uk
-curl -v --curves x25519_kyber512 https://regdata.fca.org.uk
+curl -v --curves kyber512 https://example.com
+curl -v --curves x25519_kyber512 https://example.com
 ```
 
 ### Method 2: Use OpenSSL s_client with PQ
 
 ```bash
 # With PQ-enabled OpenSSL
-openssl s_client -connect regdata.fca.org.uk:443 -groups kyber512
-openssl s_client -connect regdata.fca.org.uk:443 -groups x25519_kyber512
+openssl s_client -connect example.com:443 -groups kyber512
+openssl s_client -connect example.com:443 -groups x25519_kyber512
 ```
 
 ### Method 3: Use Specialized Tools
@@ -63,7 +63,7 @@ cd oqs-openssl
 ./Configure && make
 
 # Test PQ key exchange
-./apps/openssl s_client -connect regdata.fca.org.uk:443 -curves kyber512
+./apps/openssl s_client -connect example.com:443 -curves kyber512
 ```
 
 #### Wireshark Analysis
@@ -130,20 +130,20 @@ To improve PQ detection, we would need:
 4. **Use specialized PQ tools** for definitive testing
 5. **Monitor industry announcements** for PQ deployment news
 
-## Example: Testing regdata.fca.org.uk
+## Example: Testing a Domain
 
 ```bash
 # 1. Our scanner (basic assessment)
-python scripts/scan_tls.py regdata.fca.org.uk
+python scripts/scan_tls.py example.com
 
 # 2. Check certificate issuer
-openssl s_client -connect regdata.fca.org.uk:443 -servername regdata.fca.org.uk < /dev/null | openssl x509 -text
+openssl s_client -connect example.com:443 -servername example.com < /dev/null | openssl x509 -text
 
 # 3. Test with PQ-enabled client (if available)
-curl -v --curves kyber512 https://regdata.fca.org.uk
+curl -v --curves kyber512 https://example.com
 
-# 4. Check Cloudflare's PQ status
-# Visit Cloudflare dashboard or documentation
+# 4. Check provider's PQ status
+# Visit provider dashboard or documentation
 ```
 
 ## Conclusion

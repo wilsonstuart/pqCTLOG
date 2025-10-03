@@ -21,11 +21,11 @@ def test_cloudflare_sites():
     
     # Known Cloudflare sites
     cloudflare_sites = [
-        "regdata.fca.org.uk",
         "cloudflare.com", 
         "blog.cloudflare.com",
         "www.cloudflare.com",
-        "dash.cloudflare.com"
+        "dash.cloudflare.com",
+        "example-cloudflare-site.com"
     ]
     
     print("Testing Cloudflare Sites for Post-Quantum Indicators")

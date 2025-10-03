@@ -41,7 +41,7 @@ This means:
 
 1. **Use OpenSSL container** for PQ testing:
    ```bash
-   docker run --rm openquantumsafe/oqs-ossl3 openssl s_client -connect regdata.fca.org.uk:443 -groups x25519mlkem768
+   docker run --rm openquantumsafe/oqs-ossl3 openssl s_client -connect example.com:443 -groups x25519mlkem768
    ```
 
 2. **Avoid curl container** for now - PQ curves not working
@@ -55,8 +55,8 @@ This means:
 
 ### For Testing X25519MLKEM768
 ```bash
-# Test if regdata.fca.org.uk supports X25519MLKEM768
-python scripts/docker_pq_test.py regdata.fca.org.uk
+# Test if a server supports X25519MLKEM768
+python scripts/docker_pq_test.py example.com
 
 # The OpenSSL test should now work for x25519mlkem768
 ```
